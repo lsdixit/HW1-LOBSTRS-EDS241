@@ -47,6 +47,7 @@ library(jtools)
 library(gt)
 library(gtsummary)
 library(interactions) 
+library(ggridges)
 
 ```
 
@@ -75,7 +76,9 @@ Let’s break it down step by step and see what the data reveals! 📊
 
 #### Step 1: Anticipating potential sources of selection bias
 
-**a.** Do the control sites (Arroyo Quemado, Carpenteria, and Mohawk) provide a strong counterfactual for our treatment sites (Naples, Isla Vista)? Write a paragraph making a case for why this comparison is ceteris paribus or whether selection bias is likely (be specific!).  
+**a.** Do the control sites (Arroyo Quemado, Carpenteria, and Mohawk) provide a strong counterfactual for our treatment sites (Naples, Isla Vista)? Write a paragraph making a case for why this comparison is ceteris paribus or whether selection bias is likely (be specific!). 
+
+We cannot investigate a true counterfactual of either site, as we cannot observe an instance of either site not as MPAs at the time frame of this experiment. The next best realistic counterfactual are non-MPA sites in the same area as our MPA sites. Researches could have chosen sites as close as possible to our treatment sites, but ecologically we know processes like spillover effects would not make these control sites independent of our treatment. Likewise, the control sites themselves are not close enough together for these ecological processes to eliminate independence. The control sites are far enough from the treatments and each other, but not so far they are experiencing different oceanographic conditions to deam them incomparable, so I would argue these sites provide a sufficient comparison under ceteris paribus.
 
 ------------------------------------------------------------------------
 
@@ -88,18 +91,33 @@ Let’s break it down step by step and see what the data reveals! 📊
 ```{r}
 # HINT: check for coding of missing values (`na = "-99999"`)
 
-rawdata <- 
-
+rawdata <- read_csv(here("data", "spiny_abundance_sb_18.csv")) %>% 
+    clean_names() %>% # clean column names
+    mutate(across(size_mm, na_if, -99999)) # transform -99999 values to NA
+    
 ```
 
-**c.** Create a new `df` named `tidyata`. Using the variable `site` (reef location) create a new variable `reef` as a `factor` and add the following labels in the order listed (i.e., re-order the `levels`): 
+**c.** Create a new `df` named `tidydata`. Using the variable `site` (reef location) create a new variable `reef` as a `factor` and add the following labels in the order listed (i.e., re-order the `levels`): 
     
     "Arroyo Quemado", "Carpenteria", "Mohawk", "Isla Vista",  "Naples"
 
 ```{r}
+# create new column of full site names
+tidydata <- rawdata %>% 
+    mutate(reef = case_when(site == "IVEE" ~ "Isla Vista",
+                            site == "NAPL" ~ "Naples",
+                            site == "MOHK" ~ "Mohawk",
+                            site == "CARP" ~ "Carpenteria",
+                            site == "AQUE" ~ "Arroyo Quemado")) %>% 
+    mutate(reef = as.factor(reef))
 
-tidydata <- 
-    
+# re-order site names in the following order
+levels = c("Arroyo Quemado", "Carpenteria", "Mohawk", "Isla Vista", "Naples")
+
+tidydata <- tidydata %>% 
+    mutate(reef = fct_relevel(reef, levels))
+# check order is correct
+levels(tidydata$reef)
 ```
 
 Create new `df` named `spiny_counts` 
@@ -117,7 +135,15 @@ Create new `df` named `spiny_counts`
 
 #HINT(e): Use `case_when()` to create the 3 new variable columns
 
-spiny_counts <- 
+spiny_counts <- tidydata %>% 
+    group_by(site, year, transect) %>% 
+    summarize(counts = sum(count, na.rm = TRUE),
+              mean_size = mean(size_mm, na.rm = TRUE)) %>% 
+    mutate(treat = case_when(site == "IVEE" ~ "MPA",
+                             site == "NAPL" ~ "MPA",
+                             site == "MOHK" ~ "non_MPA",
+                             site == "CARP" ~ "non_MPA",
+                             site == "AQUE" ~ "non_MPA"))
 
 ```
 
@@ -149,17 +175,52 @@ Create a plot of lobster **size** :
 4) You choose the grouping variable(s)!
 
 ```{r}
-# plot 1: ....
+# plot 1: lobster counts grouped by reef site
 
-spiny_counts %>% 
-ggplot()
+spiny_counts %>%
+    ggplot(aes(x = counts, y = site)) +
+    geom_density_ridges()
     
 ```
+
+```{r}
+# plot 2: lobster counts grouped by MPA status
+
+spiny_counts %>% 
+    ggplot(aes(x = treat, y = counts)) +
+    geom_violin()
+```
+
+```{r}
+# plot 3: lobster counts grouped by year
+
+spiny_counts %>% 
+    ggplot(aes(x = year, y = counts)) +
+    geom_jitter()
+```
+
+```{r}
+# plot 4: lobster size grouped by treatment
+
+spiny_counts %>% 
+    ggplot(aes(colour = treat, x = mean_size)) +
+    geom_density()
+```
+
 
 **c.** Compare means of the outcome by treatment group. Using the `tbl_summary()` function from the package [`gt_summary`](https://www.danieldsjoberg.com/gtsummary/articles/tbl_summary.html) 
 
 ```{r}
-# USE: gt_summary::tbl_summary()
+# USE: gtsummary::tbl_summary()
+
+spiny_counts %>% 
+    gtsummary::tbl_summary(by = treat, 
+                           include = c(counts, mean_size),
+                           statistic = list(all_continuous() ~ "{mean} ({sd})"),
+                           label = list(counts = "Lobster Abundance",
+                                        mean_size = "Lobster Size")) %>% 
+    modify_header(label ~ "**Variable**") %>% 
+    modify_spanning_header(c("stat_1", "stat_2") ~ "**Reef Site**")
 ```
 
 ------------------------------------------------------------------------
@@ -173,13 +234,18 @@ ggplot()
 ```{r}
 # NOTE: We will not evaluate/interpret model fit in this assignment (e.g., R-square)
 
-m1_ols <- 
+m1_ols <- lm(counts ~ treat, spiny_counts)
 
 summ(m1_ols, model.fit = FALSE) 
 
 ```
 
 **c.** Check the model assumptions using the `check_model` function from the `performance` package
+
+```{r}
+performance::check_model(m1_ols)
+```
+
 
 **d.** Explain the results of the 4 diagnostic plots. Why are we getting this result?
 
@@ -219,7 +285,12 @@ check_model(m1_ols, check = "pp_check")
 
 #HINT2: For the second glm() argument `family` use the following specification option `family = poisson(link = "log")`
 
-m2_pois <- 
+# a. fit a poisson regression
+m2_pois <- glm(counts ~ treat, data = spiny_counts, 
+               family = poisson(link = "log")) 
+
+# b. interpret results
+summ(m2_pois, model.fit = FALSE)
 
 ```
 
@@ -250,13 +321,14 @@ library(MASS) ## NOTE: The `select()` function is masked. Use: `dplyr::select()`
 ```
 
 ```{r}
-
 # NOTE: The `glm.nb()` function does not require a `family` argument
 
-m3_nb <- 
+# fit a negative binomial model
+m3_nb <- glm.nb(counts ~ treat, data = spiny_counts)
+
+summ(m3_nb)
 
 ```
-
 
 ```{r}
 check_overdispersion(m3_nb)
@@ -284,8 +356,7 @@ check_model(m3_nb)
 **c.** Write a short paragraph comparing the results. Is the treatment effect `robust` or stable across the model specifications. 
 
 ```{r}
-
-export_summs(# ADD MODELS
+export_summs(m1_ols, m2_pois, m3_nb,
              model.names = c("OLS","Poisson", "NB"),
              statistics = "none")
 
@@ -331,6 +402,8 @@ interact_plot(m5_fixedeffs, pred = year, modx = treat,
               outcome.scale = "link") # NOTE: y-axis on log-scale
 
 # HINT: Change `outcome.scale` to "response" to convert y-axis scale to counts
+interact_plot(m5_fixedeffs, pred = year, modx = treat,
+              outcome.scale = "response")
 ```
 
 **g.** Using `ggplot()` create a plot in same style as the previous `interaction plot`, but displaying the original scale of the outcome variable (lobster counts). This type of plot is commonly used to show how the treatment effect changes across discrete time points (i.e., panel data).
@@ -345,7 +418,12 @@ The plot should have...
 # Hint 1: Group counts by `year` and `mpa` and calculate the `mean_count`
 # Hint 2: Convert variable `year` to a factor
 
-plot_counts <- 
+plot_counts <- spiny_counts %>% 
+    group_by(year, treat) %>% 
+    summarise(counts = sum(counts))
+ggplot(plot_counts, aes(x = year, y = counts)) +
+    geom_point(aes(color = treat)) +
+    geom_line(aes(color = treat))
 
 # plot_counts %>% ggplot() ...
 ```
@@ -369,7 +447,55 @@ d. Discuss the following causal inference assumptions in the context of the MPA 
 > Use the recent lobster abundance data with observations collected up until 2024 (`extracredit_sblobstrs24.csv`) to run an analysis evaluating the effect of MPA status on lobster counts using the same focal variables.
 
 a. Create a new script for the analysis on the updated data
+
+```{r}
+# read in data
+extracred <- read_csv(here("data", "extracredit_sblobstrs24.csv")) %>% 
+    clean_names() %>% 
+    mutate(across(size_mm, na_if, -99999))
+
+# clean and prepare data for analysis
+tidyextracred <- extracred %>% 
+    mutate(reef = case_when(site == "IVEE" ~ "Isla Vista",
+                            site == "NAPL" ~ "Naples",
+                            site == "MOHK" ~ "Mohawk",
+                            site == "CARP" ~ "Carpenteria",
+                            site == "AQUE" ~ "Arroyo Quemado")) %>% 
+    mutate(reef = as.factor(reef))
+
+extracred_counts <- tidyextracred %>% 
+    group_by(site, year, transect) %>% 
+    summarize(counts = sum(count, na.rm = TRUE),
+              mean_size = mean(size_mm, na.rm = TRUE)) %>% 
+    mutate(treat = case_when(site == "IVEE" ~ "MPA",
+                             site == "NAPL" ~ "MPA",
+                             site == "MOHK" ~ "non_MPA",
+                             site == "CARP" ~ "non_MPA",
+                             site == "AQUE" ~ "non_MPA"))
+```
+
+```{r}
+extracred_counts %>% 
+    ggplot(aes(colour = treat, x = mean_size)) +
+    geom_density()
+```
+
+
 b. Run at least 3 regression models & assess model diagnostics
+
+```{r}
+m1_extra <- lm(counts ~ treat, extracred_counts)
+m2_extra <- glm(counts ~ treat, data = extracred_counts, 
+               family = poisson(link = "log")) 
+m3_extra <- glm.nb(counts ~ treat, data = extracred_counts)
+
+# compare coefficients
+export_summs(m1_extra, m2_extra, m3_extra,
+             model.names = c("OLS","Poisson", "NB"),
+             statistics = "none")
+
+```
+
 c. Compare and contrast results with the analysis from the 2012-2018 data sample (~ 2 paragraphs)
 
 
