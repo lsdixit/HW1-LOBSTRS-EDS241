@@ -1,17 +1,19 @@
 ---
 title: "Assignment 1"
 subtitle: "California Spiny Lobster (*Panulirus Interruptus*): Assessing the Impact of Marine Protected Areas (MPAs) at 5 Reef Sites in Santa Barbara County" 
-author: "EDS 241 / ESM 244 (**Due: 1/17**)"
+author: "EDS 241 / ESM 244 (**Due: 1/20**)"
 date: "1/8/26"
-output: 
-    html_document:
-      theme: flatly
+format:
+  pdf:
+    knitr:
+      opts_chunk:
+        crop: null
 editor_options: 
   chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(eval=FALSE, warning = FALSE, message = FALSE )
+knitr::opts_chunk$set(eval=TRUE, warning = FALSE, message = FALSE )
 ```
 
 ------------------------------------------------------------------------
@@ -61,13 +63,13 @@ library(ggridges)
 
 ### **Introduction**
 
-You're about to dive into some deep data collected from five reef sites in Santa Barbara County, all about the abundance of California spiny lobsters! 🦞 Data was gathered by divers annually from 2012 to 2018 across Naples, Mohawk, Isla Vista, Carpinteria, and Arroyo Quemado reefs.
+You're about to dive into some deep data collected from five reef sites in Santa Barbara County, all about the abundance of California spiny lobsters! Data was gathered by divers annually from 2012 to 2018 across Naples, Mohawk, Isla Vista, Carpinteria, and Arroyo Quemado reefs.
 
 Why lobsters? Well, this sample provides an opportunity to evaluate the impact of Marine Protected Areas (MPAs) established on January 1, 2012 (Reed, 2019). Of these five reefs, Naples, and Isla Vista are MPAs, while the other three are not protected (non-MPAs). Comparing lobster health between these protected and non-protected areas gives us the chance to study how commercial and recreational fishing might impact these ecosystems.
 
 We will consider the MPA sites the `treatment` group and use regression methods to explore whether protecting these reefs really makes a difference compared to non-MPA sites (our control group). In this assignment, we’ll think deeply about which causal inference assumptions hold up under the research design and identify where they fall short.
 
-Let’s break it down step by step and see what the data reveals! 📊
+Let’s break it down step by step and see what the data reveals!
 
 ![](figures/map-5reefs.png)
 
@@ -733,6 +735,7 @@ c.  Compare and contrast results with the analysis from the 2012-2018 data sampl
 | Treatment Change (%) | 28    | 28     | 28    | -82          |
 | Treatment p-value    | p\<0.05 | p\<0.001 | p\<0.05 | p\<0.001        |
 
+
 2012 - 2018
 
 |                      | OLS     | Poisson  | NB      | NB w/ Controls |
@@ -743,7 +746,7 @@ c.  Compare and contrast results with the analysis from the 2012-2018 data sampl
 
 I ran the same four models from the truncated (6) year data set: OLS, Poisson, negative binomial, and a negative binomial controlling for confounding variables. Overall, these four models from the 12 year data set trend very similarly to the models run on only 6 years of data. When checking model assumptions, each model is fairly consistent for which tests were validated and which tests were not. When checking for overdispersion, both OLS models were highly overdispersed, the poisson model changed from overdispersed to no overdispersion when adding the extra 6 years, and both negative binomials were consistently not overdispersed. Both OLS models had evidence of zero inflation. For the 6 year data set, the poisson and both negative binomials did not pass the test for zero-inflation, however in the 12 year data set they both showed evidence of no zero-inflation. This makes sense as the addition of more data points that are not zero help to alleviate the total ratio of zeros in the data set. 
 
-In the 12 year data set, coefficients and p-values follow the same pattern as the 6 year data set but with different values. In the 12 year data set, coefficients are quite robust between model types, but p-values fluctuate (though all treatment coefficients return with p<0.05 indicating treatment significance). However, all coefficients are lower in value in the 12 year data set compared to the 6 year, except for the negative binomial that controls for year which is the very similar between data sets. When looking at the predictions for the 12 year data, it makes sense that there are not too many changes in the model coefficients as the pattern of abundances between treatments stays relatively consistent over time. The difference in coefficients between data sets could be due to the omitted variable of year and interaction between year and treatment, and because we included that in our negative binomial we don't see as much variation between data sets.
+In the 12 year data set, coefficients and p-values follow the same pattern as the 6 year data set but with different values. In the 12 year data set, coefficients are quite robust between model types, but p-values fluctuate (though all treatment coefficients return with p<0.05 indicating treatment significance). However, all coefficients are higher in value in the 12 year data set compared to the 6 year, except for the negative binomial that controls for year which is the very similar between data sets. When looking at the predictions for the 12 year data, it makes sense that there are not too many changes in the model coefficients as the pattern of abundances between treatments stays relatively consistent over time. The difference in coefficients between data sets could be due to the omitted variable of year and interaction between year and treatment, and because we included that in our negative binomial we don't see as much variation between data sets.
 
 There are 4 instances in the prediction plot of MPA and non-MPA lobster abundance switching trends (2013-2014, 2015-2016, 2021-2022) with abundance in MPA reefs often decreasing and abundance in non-MPA reefs increasing. Whether these trends in abundance are due to common fluctuations due to ecological or oceanographic pressures, or evidence of spillover effects, would likely require more experimentation, but it does lend evidence that these processes are worth exploring for species of conservation importance in MPAs.
 
